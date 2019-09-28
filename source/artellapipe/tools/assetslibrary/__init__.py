@@ -13,7 +13,7 @@ sentry_sdk.init("https://6ce3277bc9d646029e1062bdf7e56f24@sentry.io/1764122")
 
 from tpPyUtils import importer
 
-from artellapipe.utils import resource, exceptions
+from artellapipe.utils import exceptions
 
 
 class AssetsLibrary(importer.Importer, object):
