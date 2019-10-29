@@ -1,15 +1,30 @@
 language: python
+before_install:
+- pip install pycodestyle
 install:
 - pip install -r requirements.txt
 - python setup.py install
 script:
-- pytest
+- find . -name \*.py -exec pycodestyle --max-line-length=120 --ignore=E402 {} +
+- pytest --cov=artellapipe
+- sphinx-apidoc -f -e -o docs/sphinx artellapipe
+- sphinx-build -M html ./docs/sphinx ./
+after_success:
+- coveralls
+- cd html && touch .nojekyll && cd ../
 deploy:
-  skip_cleanup: true
-  provider: pypi
-  user: tpoveda
-  password:
-    secure: UdCCZe5JR61o0q55568Bw9jBUskpzW8ngbrzf9/40m6FGF1aj7xkavl0RRCDvRb/+lyFl51Fv9cXjURssgnGrqRjL6izC7uvSnMc9KaLpu1UA1s3JTL5KkObLnG2vqLERJUIa1bMI+nIMXG3aVWHCit/126yC476aw8AFabPwBm44VjSaQiRkOau8Eb2FbbSCo6ugKjR7GmTaPuBbWj4Sld9CJwQeriMaytK9NTLE4J4qYXUIf1iEYwHjUUVVFkwnIOvEpDWtzpk211YTZRnfVsbaYNyRGAb0rPwajUyitb8XV06EPPO0qnjzJQe9QmK+dBxrxTTxeHTlnVfx4oQkl9wlHhSYe5jBd0pZJVSg+bvUZiYP5FYAdVhoJKdFDNciVUJ8RWOBp7cx7EJKVYvPEvK9efj4YStRH0H2nDKFhQq12H2q8dSEtwsq+K8Uzm8V++Dz1gYCi3St4/BOZyVXZqcuwoBSJ8s5twVpRhlaBWVGhxFUsEWhlU8t4mhyFyJY4/BXJe+2lJb/LunWoifHO2e27TlbQ+zzX5KkKIaVFVrxJDblpNFu1XRoX8kc7ae/G8v/M4d8RWOLXAgcfCxHPnB8bCsAdRdMGO3V2HkeRqCgrST42QzBNSIN41GY3oBOwnhGwiTVds5EGbLQey15jTeqAuCeerWexmDdGy9icQ=
-  on:
-    branch: master
-    tags: true
+  - provider: pages
+    skip_cleanup: true
+    github_token: "$GITHUB_TOKEN"
+    keep_history: true
+    local_dir: html
+    on:
+      branch: master
+  - provider: pypi
+    skip_cleanup: true
+    user: tpoveda
+    password:
+      secure: jHafDJSYowWY6cMyEqS+ek6hq4/ruPbMO5A6FV3RWunMABM9lZvLEfLVv2vsMIMma4sjkulDR4+MB76LsvWhp8pNZ9xQn81WBA/lfb4PH5Km1npmAKcBpgcBPknHNve9ph1Nj+gOaiDZHXtK8cbng2o8v31f43igvT+QibCLbaTEtJ6y/aF7ZNIKonycLzlo4hvZfK3GPYqbvlNlwBOItHVxi6PUepxyHBuQ4aoTtKxfzt6Q9fBNuYSr7qSvP3tZ08PyMYkuAwGexb1LbzMqsOGxUhVlAS0aFFrihGevbqryTcHadnLKpBzARlkZOUei+dx4RahWnuVJWhEVc6WKdLi1spEtZE9avuZS9AH7lsJ+9fG/dFehD5a9b/MAzi8ymGWPOKUnGscc8pkvRx5b1sk5Tj+8IhkxqjgXw4MwKFRO1vjIO+AjtPEOM2yTpzo92ScoIB8JXroiXHCBHpl21qFdOaMs9sr9rW+hR10N8QQ3mHhKqQrpmBcV5+yBzRDpqireqdejsLceOFMZ3nn3EGrVp4bJR5PROa/82BYUDgQW57VlXm49QYpWnOwz4kPRR7BGyYwkqDssZ+pNnC5nhek8xhFeei8u1VvWWjjCzeg0kSh1WX7gcVTMHuXZCcooT7YVsKfRq8aJA8/tA5CJr2LwY7FDezBkSeyE4rNVI0I=
+    on:
+      branch: master
+      tags: true

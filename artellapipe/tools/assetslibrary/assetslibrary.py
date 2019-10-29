@@ -13,6 +13,7 @@ __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
 import weakref
+import logging
 import traceback
 from functools import partial
 
@@ -25,6 +26,8 @@ from tpQtLib.core import qtutils
 
 from artellapipe.core import defines
 from artellapipe.gui import window
+
+LOGGER = logging.getLogger()
 
 
 class ArtellaAssetsLibraryWidget(QWidget, object):
@@ -219,8 +222,8 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
                 try:
                     asset_widget.asset.reference_file_by_extension(extension=btn.extension)
                 except Exception as e:
-                    self._project.logger.warning('Impossible to reference asset!')
-                    self._project.logger.error('{} | {}'.format(e, traceback.format_exc()))
+                    LOGGER.warning('Impossible to reference asset!')
+                    LOGGER.error('{} | {}'.format(e, traceback.format_exc()))
                 finally:
                     return
 
@@ -243,13 +246,3 @@ class ArtellaAssetsLibrary(window.ArtellaWindow, object):
 
         self._library_widget = self.LIBRARY_WIDGET(project=self._project)
         self.main_layout.addWidget(self._library_widget)
-
-
-def run(project):
-    if tp.is_maya():
-        win = window.dock_window(project=project, window_class=ArtellaAssetsLibraryWidget)
-        return win
-    else:
-        win = ArtellaAssetsLibrary(project=project)
-        win.show()
-        return win
