@@ -24,61 +24,61 @@ import tpDccLib as tp
 
 from tpQtLib.core import qtutils
 
-from artellapipe.core import defines
-from artellapipe.gui import window
+from artellapipe.core import tool, defines
 
 LOGGER = logging.getLogger()
 
 
 class ArtellaAssetsLibraryWidget(QWidget, object):
 
-    # Necessary to support Maya dock
-    name = 'ArtellaAssetsLibrary'
-    title = 'Artella Assets Viewer'
+    # # Necessary to support Maya dock
+    # name = 'ArtellaAssetsLibrary'
+    # title = 'Artella Assets Viewer'
 
-    _instances = list()
+    # _instances = list()
 
     def __init__(self, project, parent=None):
 
         self._project = project
 
-        main_window = tp.Dcc.get_main_window()
-        if parent is None:
-            parent = main_window
+        # main_window = tp.Dcc.get_main_window()
+        # if parent is None:
+        #     parent = main_window
 
         super(ArtellaAssetsLibraryWidget, self).__init__(parent=parent)
 
-        if tp.is_maya():
-            ArtellaAssetsLibraryWidget._delete_instances()
-            self.__class__._instances.append(weakref.proxy(self))
+        # if tp.is_maya():
+        #     ArtellaAssetsLibraryWidget._delete_instances()
+        #     self.__class__._instances.append(weakref.proxy(self))
 
         self.ui()
         self.resize(150, 800)
 
         self._assets_viewer.update_assets()
 
-    @staticmethod
-    def _delete_instances():
-        for ins in ArtellaAssetsLibraryWidget._instances:
-            try:
-                ins.setParent(None)
-                ins.deleteLater()
-            except Exception:
-                pass
-
-            ArtellaAssetsLibraryWidget._instances.remove(ins)
-            del ins
+    # @staticmethod
+    # def _delete_instances():
+    #     for ins in ArtellaAssetsLibraryWidget._instances:
+    #         try:
+    #             ins.setParent(None)
+    #             ins.deleteLater()
+    #         except Exception:
+    #             pass
+    #
+    #         ArtellaAssetsLibraryWidget._instances.remove(ins)
+    #         del ins
 
     def ui(self):
 
         self.main_layout = QVBoxLayout()
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
+        self.setLayout(self.main_layout)
 
-        if tp.is_maya():
-            self.parent().layout().addLayout(self.main_layout)
-        else:
-            self.setLayout(self.main_layout)
+        # if tp.is_maya():
+        #     self.parent().layout().addLayout(self.main_layout)
+        # else:
+        #     self.setLayout(self.main_layout)
 
         self._main_widget = QWidget()
         main_layout = QVBoxLayout()
@@ -120,7 +120,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
 
         self._supported_types_btn_grp = QButtonGroup(self)
         self._supported_types_btn_grp.setExclusive(True)
-        supported_types = self._project.assets_library_file_types if self._project else list()
+        supported_types = self._project.asset_library_supported_files if self._project else list()
 
         self._assets_viewer.assetAdded.connect(self._on_asset_added)
 
@@ -228,18 +228,12 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
                     return
 
 
-class ArtellaAssetsLibrary(window.ArtellaWindow, object):
+class ArtellaAssetsLibrary(tool.Tool, object):
 
     LIBRARY_WIDGET = ArtellaAssetsLibraryWidget
 
-    def __init__(self, project, parent=None):
-        super(ArtellaAssetsLibrary, self).__init__(
-            project=project,
-            name='AssetsLibraryWindow',
-            title='Assets Library',
-            size=(1100, 900),
-            parent=parent
-        )
+    def __init__(self, project, config):
+        super(ArtellaAssetsLibrary, self).__init__(project=project, config=config)
 
     def ui(self):
         super(ArtellaAssetsLibrary, self).ui()
