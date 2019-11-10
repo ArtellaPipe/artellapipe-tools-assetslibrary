@@ -169,8 +169,63 @@
 
            <div itemprop="articleBody">
             
-  <div class="section" id="artellapipe-tools-assetslibrary-assetslibrary-module">
-<h1>artellapipe.tools.assetslibrary.assetslibrary module<a class="headerlink" href="#artellapipe-tools-assetslibrary-assetslibrary-module" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="module-artellapipe.tools.assetslibrary.assetslibrary">
+<span id="artellapipe-tools-assetslibrary-assetslibrary-module"></span><h1>artellapipe.tools.assetslibrary.assetslibrary module<a class="headerlink" href="#module-artellapipe.tools.assetslibrary.assetslibrary" title="Permalink to this headline">¶</a></h1>
+<p>Tool that allow artists to load assets into DCC scenes</p>
+<dl class="class">
+<dt id="artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibrary">
+<em class="property">class </em><code class="sig-prename descclassname">artellapipe.tools.assetslibrary.assetslibrary.</code><code class="sig-name descname">ArtellaAssetsLibrary</code><span class="sig-paren">(</span><em class="sig-param">project</em>, <em class="sig-param">config</em><span class="sig-paren">)</span><a class="headerlink" href="#artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibrary" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">artellapipe.core.tool.Tool</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="attribute">
+<dt id="artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibrary.LIBRARY_WIDGET">
+<code class="sig-name descname">LIBRARY_WIDGET</code><a class="headerlink" href="#artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibrary.LIBRARY_WIDGET" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="#artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget" title="artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget"><code class="xref py py-class docutils literal notranslate"><span class="pre">ArtellaAssetsLibraryWidget</span></code></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibrary.staticMetaObject">
+<code class="sig-name descname">staticMetaObject</code><em class="property"> = &lt;PySide2.QtCore.QMetaObject object&gt;</em><a class="headerlink" href="#artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibrary.staticMetaObject" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibrary.ui">
+<code class="sig-name descname">ui</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibrary.ui" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function that sets up the ui of the widget
+Override it on new widgets (but always call super)</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget">
+<em class="property">class </em><code class="sig-prename descclassname">artellapipe.tools.assetslibrary.assetslibrary.</code><code class="sig-name descname">ArtellaAssetsLibraryWidget</code><span class="sig-paren">(</span><em class="sig-param">project</em>, <em class="sig-param">parent=None</em><span class="sig-paren">)</span><a class="headerlink" href="#artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">PySide2.QtWidgets.QWidget</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="attribute">
+<dt id="artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget.staticMetaObject">
+<code class="sig-name descname">staticMetaObject</code><em class="property"> = &lt;PySide2.QtCore.QMetaObject object&gt;</em><a class="headerlink" href="#artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget.staticMetaObject" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget.ui">
+<code class="sig-name descname">ui</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget.ui" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget.update_asset_categories">
+<code class="sig-name descname">update_asset_categories</code><span class="sig-paren">(</span><em class="sig-param">asset_categories</em><span class="sig-paren">)</span><a class="headerlink" href="#artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget.update_asset_categories" title="Permalink to this definition">¶</a></dt>
+<dd><p>Updates current categories with the given ones
+:param asset_categories: list(str)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget.update_supported_types">
+<code class="sig-name descname">update_supported_types</code><span class="sig-paren">(</span><em class="sig-param">supported_types</em><span class="sig-paren">)</span><a class="headerlink" href="#artellapipe.tools.assetslibrary.assetslibrary.ArtellaAssetsLibraryWidget.update_supported_types" title="Permalink to this definition">¶</a></dt>
+<dd><p>Updates current supported types
+:param supported_types: dict(str, str)</p>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 
 
