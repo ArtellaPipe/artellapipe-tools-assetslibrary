@@ -91,12 +91,16 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         self._supported_types_btn_grp = QButtonGroup(self)
         self._supported_types_btn_grp.setExclusive(True)
 
+        self._sync_to_latest = QCheckBox('Sync to Latest Version')
+        self._sync_to_latest.setChecked(True)
         self._fit_camera_cbx = QCheckBox('Fit Camera')
+        self._fit_camera_cbx.setChecked(True)
         self.main_layout.addLayout(splitters.SplitterLayout())
         checkboxes_layout = QHBoxLayout()
         checkboxes_layout.setContentsMargins(5, 5, 5, 5)
         checkboxes_layout.setSpacing(2)
         self.main_layout.addLayout(checkboxes_layout)
+        checkboxes_layout.addWidget(self._sync_to_latest)
         checkboxes_layout.addWidget(self._fit_camera_cbx)
         checkboxes_layout.addItem(QSpacerItem(10, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
         self.main_layout.addLayout(splitters.SplitterLayout())
@@ -236,7 +240,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
             if btn.isChecked():
                 try:
                     res = asset_widget.asset.reference_file_by_extension(
-                        extension=btn.extension)
+                        extension=btn.extension, sync=self._sync_to_latest.isChecked())
                     if res:
                         if self._fit_camera_cbx.isChecked():
                             try:
