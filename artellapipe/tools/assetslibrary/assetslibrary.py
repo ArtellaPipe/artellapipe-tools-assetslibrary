@@ -367,7 +367,6 @@ class ArtellaAssetsLibrary(artellapipe.Tool, object):
     def __init__(self, project, config):
         super(ArtellaAssetsLibrary, self).__init__(project=project, config=config)
 
-
     def ui(self):
         super(ArtellaAssetsLibrary, self).ui()
 
@@ -383,4 +382,3 @@ class ArtellaAssetsLibrary(artellapipe.Tool, object):
         """
 
         self._library_widget.refresh()
-
