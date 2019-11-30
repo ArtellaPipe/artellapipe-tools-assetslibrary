@@ -26,7 +26,7 @@ from tpQtLib.core import qtutils
 from tpQtLib.widgets import splitters, stack, buttons
 
 import artellapipe
-from artellapipe.core import asset
+from artellapipe.core import defines
 from artellapipe.utils import resource
 
 LOGGER = logging.getLogger()
@@ -125,7 +125,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         self._sync_to_latest = QCheckBox('Sync to Latest Version')
         self._sync_to_latest.setChecked(True)
         self._fit_camera_cbx = QCheckBox('Fit Camera')
-        self._fit_camera_cbx.setChecked(True)
+        self._fit_camera_cbx.setChecked(False)
         viewer_layout.addLayout(splitters.SplitterLayout())
         checkboxes_layout = QHBoxLayout()
         checkboxes_layout.setContentsMargins(5, 5, 5, 5)
@@ -177,7 +177,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
                 if not item:
                     continue
                 asset_widget = item.containedWidget
-                asset_file = asset_widget.asset.get_file('rig', status=asset.ArtellaAssetFileStatus.PUBLISHED)
+                asset_file = asset_widget.asset.get_file('rig', status=defines.ArtellaFileStatus.PUBLISHED)
                 if asset_file and os.path.exists(asset_file):
                     continue
                 self._create_sync_button(item)
@@ -196,7 +196,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
 
         qtutils.clear_layout(self._categories_menu_layout)
 
-        all_asset_categories = [asset.ArtellaAssetFileStatus.ALL]
+        all_asset_categories = [defines.ArtellaFileStatus.ALL]
         all_asset_categories.extend(asset_categories)
         for category in all_asset_categories:
             new_btn = QPushButton(category)
@@ -205,7 +205,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
             new_btn.setCheckable(True)
             self._categories_menu_layout.addWidget(new_btn)
             self._categories_btn_grp.addButton(new_btn)
-            if category == asset.ArtellaAssetFileStatus.ALL:
+            if category == defines.ArtellaFileStatus.ALL:
                 new_btn.setIcon(resource.ResourceManager().icon('home'))
                 new_btn.setChecked(True)
             new_btn.toggled.connect(partial(self._change_category, category))
@@ -225,11 +225,11 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
             return
 
         total_buttons = 0
-        for type_name, type_extension in self._supported_files.items():
+        for type_name, file_info in self._supported_files.items():
             new_btn = QPushButton(type_name.title())
             new_btn.setIcon(resource.ResourceManager().icon(type_name.lower()))
             new_btn.setCheckable(True)
-            new_btn.extension = type_extension
+            new_btn.file_info = file_info
             self._supported_types_layout.addWidget(new_btn)
             self._supported_types_btn_grp.addButton(new_btn)
             if total_buttons == 0:
@@ -331,19 +331,36 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         for btn in self._supported_types_btn_grp.buttons():
             if btn.isChecked():
                 try:
-                    res = asset_widget.asset.reference_file_by_extension(
-                        extension=btn.extension, file_type=btn.text().lower().replace(' ', ''),
-                        sync=self._sync_to_latest.isChecked())
-                    if res:
-                        if self._fit_camera_cbx.isChecked():
-                            try:
-                                tp.Dcc.select_object(res)
-                                tp.Dcc.fit_view(True)
-                                tp.Dcc.clear_selection()
-                            except Exception as exc:
-                                LOGGER.warning('Impossible to fit camera view to referenced objects!')
+                    file_info = btn.file_info
+                    if not file_info:
+                        LOGGER.warning('Impossible to load asset file!')
+                        return
+                    for file_type, extensions in file_info.items():
+                        if not extensions:
+                            LOGGER.warning(
+                                'No Extension defined for File Type "{}" in artellapipe.tools.assetslibrary '
+                                'configuration file!'.format(file_type))
+                            continue
+                        for extension, operation in extensions.items():
+                            if operation == 'reference':
+                                res = asset_widget.asset.import_file_by_extension(
+                                    extension=extension, file_type=file_type, sync=self._sync_to_latest.isChecked(),
+                                    reference=True, status=defines.ArtellaFileStatus.PUBLISHED)
+                            else:
+                                res = asset_widget.asset.import_file_by_extension(
+                                    extension=extension, file_type=file_type, sync=self._sync_to_latest.isChecked(),
+                                    reference=False, status=defines.ArtellaFileStatus.PUBLISHED)
+                            if res:
+                                if self._fit_camera_cbx.isChecked():
+                                    try:
+                                        tp.Dcc.select_object(res)
+                                        if tp.Dcc.selected_nodes():
+                                            tp.Dcc.fit_view(True)
+                                        tp.Dcc.clear_selection()
+                                    except Exception as exc:
+                                        LOGGER.warning('Impossible to fit camera view to referenced objects!')
                 except Exception as e:
-                    LOGGER.warning('Impossible to reference asset!')
+                    LOGGER.warning('Impossible to load asset file!')
                     LOGGER.error('{} | {}'.format(e, traceback.format_exc()))
                 finally:
                     return
