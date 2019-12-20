@@ -27,7 +27,8 @@ from tpQtLib.widgets import splitters, stack, buttons
 
 import artellapipe
 from artellapipe.core import defines
-from artellapipe.utils import resource
+from artellapipe.widgets import waiter
+from artellapipe.utils import resource, worker, exceptions
 
 LOGGER = logging.getLogger()
 
@@ -37,6 +38,13 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
 
         self._supported_files = supported_files if supported_files else dict()
         self._project = project
+        self._cache = dict()
+
+        self._artella_worker = worker.Worker(app=QApplication.instance())
+        self._artella_worker.workCompleted.connect(self._on_artella_worker_completed)
+        self._artella_worker.workFailure.connect(self._on_artella_worker_failed)
+        self._artella_worker.start()
+
         super(ArtellaAssetsLibraryWidget, self).__init__(parent=parent)
 
         self.ui()
@@ -44,8 +52,12 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
 
         self._menu = self._create_contextual_menu()
 
-    def ui(self):
+        self._start_refresh()
 
+    def showEvent(self, event):
+        super(ArtellaAssetsLibraryWidget, self).showEvent(event)
+
+    def ui(self):
         self.main_layout = QVBoxLayout()
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
@@ -80,14 +92,18 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         no_assets_frame_layout.addItem(QSpacerItem(10, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
         no_assets_frame_layout.addWidget(no_assets_found_label)
         no_assets_frame_layout.addItem(QSpacerItem(10, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
-        self._stack.addWidget(no_assets_widget)
+
+        loading_waiter = waiter.ArtellaWaiter()
 
         viewer_widget = QWidget()
         viewer_layout = QVBoxLayout()
         viewer_layout.setContentsMargins(2, 2, 2, 2)
         viewer_layout.setSpacing(2)
         viewer_widget.setLayout(viewer_layout)
+
+        self._stack.addWidget(no_assets_widget)
         self._stack.addWidget(viewer_widget)
+        self._stack.addWidget(loading_waiter)
 
         self._assets_viewer = artellapipe.AssetsViewer(
             project=self._project,
@@ -137,39 +153,35 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         viewer_layout.addLayout(splitters.SplitterLayout())
 
         self._assets_viewer.assetAdded.connect(self._on_asset_added)
-
-        self.refresh()
+        self._stack.animFinished.connect(self._on_stack_anim_finished)
 
     def contextMenuEvent(self, event):
-        if not self._menu:
+        if not self._menu or self._stack.currentIndex() != 1:
             return
         self._menu.exec_(event.globalPos())
 
-    def refresh(self):
+    def refresh(self, *args, **kwargs):
         """
         Function that refresh all the data of the assets library
         """
 
-        self.update_asset_categories()
-        self.update_supported_types()
-        self.update_stack()
-        self.update_assets_status()
+        self.update_assets_cache()
+        self.update_cache()
 
-    def update_stack(self):
+    def update_assets_cache(self):
         """
-        Function that updates stack status taking into account current available assets count
+        Function that updates assets viewer internal cache
         """
 
-        total_assets = len(self._assets_viewer.get_assets())
-        if total_assets > 0:
-            self._stack.slide_in_index(1)
-        else:
-            self._stack.slide_in_index(0)
+        self._assets_viewer.update_cache(force=True)
 
-    def update_assets_status(self):
+    def update_cache(self, force=False):
         """
-        Updates widgets icon depending of the availabilty of the asset
+        Function that updates the cache of the library
         """
+
+        if self._cache and not force:
+            return self._cache
 
         for i in range(self._assets_viewer.rowCount()):
             for j in range(self._assets_viewer.columnCount()):
@@ -178,9 +190,44 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
                     continue
                 asset_widget = item.containedWidget
                 asset_file = asset_widget.asset.get_file('rig', status=defines.ArtellaFileStatus.PUBLISHED)
+                asset_name = asset_widget.asset.get_name()
                 if asset_file and os.path.exists(asset_file):
                     continue
-                self._create_sync_button(item)
+
+                if asset_name not in self._cache:
+                    self._cache[asset_name] = {
+                        'item': item,
+                        'has_label': False,
+                        'has_sync_button': False,
+                        'sync_button': None,
+                        'label': None
+                    }
+
+                    if not asset_widget.asset.is_published('rig'):
+                        self._cache[asset_name]['has_label'] = True
+                    else:
+                        self._cache[asset_name]['has_sync_button'] = True
+
+        return self._cache
+
+    def update_assets_status(self, force=False):
+        """
+        Updates widgets icon depending of the availabilty of the asset
+        """
+
+        if not self._cache or force:
+            self.update_cache(force=force)
+        if not self._cache:
+            return
+
+        for asset_name, asset_data in self._cache.items():
+            item = self._cache[asset_name]['item']
+            has_label = self._cache[asset_name]['has_label']
+            has_sync_button = self._cache[asset_name]['has_sync_button']
+            if has_label:
+                self._cache[asset_name]['label'] = self._create_not_published_label(item)
+            if has_sync_button:
+                self._cache[asset_name]['sync_button'] = self._create_sync_button(item)
 
     def update_asset_categories(self, asset_categories=None):
         """
@@ -236,6 +283,14 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
                 new_btn.setChecked(True)
             total_buttons += 1
 
+    def _start_refresh(self):
+        """
+        Internal function that slides to loading assets stack widget and initializes the refresh operation
+        in background
+        """
+
+        self._stack.slide_in_index(2)
+
     def _change_category(self, category, flag):
         """
         Internal function that is called when the user presses an Asset Category button
@@ -253,6 +308,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         """
 
         asset_widget.clicked.connect(self._on_asset_clicked)
+        asset_widget.startSync.connect(self._on_start_asset_sync)
 
     def _create_sync_button(self, item):
         """
@@ -268,6 +324,16 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         sync_btn.move(item.width() * 0.5 - sync_btn.width() * 0.5, item.height() * 0.5 - sync_btn.height() * 0.5)
         sync_btn.setParent(item.containedWidget)
 
+        asset_widget = item.containedWidget
+        sync_btn.clicked.connect(partial(self._on_sync_asset, asset_widget))
+
+        return sync_btn
+
+    def _create_not_published_label(self, item):
+        """
+        Internal function that creates not published label
+        """
+
         not_published_pixmap = resource.ResourceManager().pixmap('asset_not_published')
         not_published_lbl = QLabel()
         not_published_lbl.move(9, 9)
@@ -275,8 +341,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         not_published_lbl.setPixmap(not_published_pixmap)
         not_published_lbl.setParent(item.containedWidget)
 
-        asset_widget = item.containedWidget
-        sync_btn.clicked.connect(partial(self._on_sync_asset, asset_widget))
+        return not_published_lbl
 
     def _create_contextual_menu(self):
         """
@@ -292,6 +357,14 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         new_menu.addAction(get_thumbnails_action)
 
         return new_menu
+
+    def _get_asset_categories(self):
+        """
+        Returns a list with the asset categories supported
+        :return: list(str)
+        """
+
+        return artellapipe.AssetsMgr().config.get('types') or list()
 
     def _on_update_thumbnails(self):
         """
@@ -311,13 +384,13 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
 
         self._setup_asset_signals(asset_widget)
 
-    def _get_asset_categories(self):
+    def _on_stack_anim_finished(self, index):
         """
-        Returns a list with the asset categories supported
-        :return: list(str)
+        Internal callback function that is called when stack animation finish
         """
 
-        return artellapipe.AssetsMgr().config.get('types') or list()
+        if index == 2:
+            self._artella_worker.queue_work(self.refresh, {})
 
     def _on_asset_clicked(self, asset_widget):
         """
@@ -374,7 +447,56 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
             return
 
         asset_widget.asset.sync_latest_published_files(None, True)
-        self.refresh()
+
+        asset_name = asset_widget.asset.get_name()
+        asset_file = asset_widget.asset.get_file('rig', status=defines.ArtellaFileStatus.PUBLISHED)
+        if asset_file and os.path.exists(asset_file):
+            if asset_name in self._cache:
+                if self._cache[asset_name]['sync_button']:
+                    self._cache[asset_name]['sync_button'].setParent(None)
+                    qtutils.safe_delete_later(self._cache[asset_name]['sync_button'])
+                if self._cache[asset_name]['label']:
+                    self._cache[asset_name]['label'].setParent(None)
+                    qtutils.safe_delete_later(self._cache[asset_name]['label'])
+
+    def _on_start_asset_sync(self, asset, file_type, sync_type):
+        """
+        Internal callback function that is called when an asset needs to be synced
+        :param asset: ArtellaAsset
+        :param file_type: str
+        :param sync_type: str
+        """
+
+        if not asset:
+            return
+
+        asset.sync(file_type, sync_type)
+
+    def _on_artella_worker_completed(self, uid, asset_widget):
+        """
+        Internal callback function that is called when worker finishes its job
+        """
+
+        total_assets = len(self._assets_viewer.get_assets())
+        if total_assets > 0:
+            self.update_asset_categories()
+            self.update_supported_types()
+            self.update_assets_status()
+            self._stack.slide_in_index(1)
+        else:
+            self._stack.slide_in_index(0)
+
+    def _on_artella_worker_failed(self, uid, msg, trace):
+        """
+        Internal callback function that is called when the Artella worker fails
+        :param uid: str
+        :param msg: str
+        :param trace: str
+        """
+
+        error_msg = '{} | {} | {}'.format(uid, msg, trace)
+        LOGGER.error(error_msg)
+        exceptions.capture_message(error_msg)
 
 
 class ArtellaAssetsLibrary(artellapipe.Tool, object):
