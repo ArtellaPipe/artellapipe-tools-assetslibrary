@@ -354,7 +354,9 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         refresh_action = QAction(resource.ResourceManager().icon('refresh'), 'Refresh', new_menu)
         get_thumbnails_action.triggered.connect(self._on_update_thumbnails)
         refresh_action.triggered.connect(self.refresh)
+
         new_menu.addAction(get_thumbnails_action)
+        new_menu.addAction(refresh_action)
 
         return new_menu
 
@@ -514,10 +516,18 @@ class ArtellaAssetsLibrary(artellapipe.Tool, object):
         self.main_layout.addWidget(self._library_widget)
 
         artellapipe.Tracker().logged.connect(self._on_valid_login)
+        artellapipe.Tracker().unlogged.connect(self._on_valid_unlogin)
 
     def _on_valid_login(self):
         """
         Internal callback function that is called anytime user log in into Tracking Manager
         """
 
-        self._library_widget.refresh()
+        self._library_widget._start_refresh()
+
+    def _on_valid_unlogin(self):
+        """
+        Internal callback function that is called anytime user unlog from Tracking Manager
+        """
+
+        self._library_widget._stack.slide_in_index(0)
