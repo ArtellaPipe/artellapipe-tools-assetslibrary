@@ -1,0 +1,7 @@
+artellapipe.tools.assetslibrary.core.assetslibrary module
+=========================================================
+
+.. automodule:: artellapipe.tools.assetslibrary.core.assetslibrary
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -1,12 +1,13 @@
 artellapipe.tools.assetslibrary package
 =======================================
 
-Submodules
-----------
+Subpackages
+-----------
 
 .. toctree::
 
-   artellapipe.tools.assetslibrary.assetslibrary
+   artellapipe.tools.assetslibrary.core
+   artellapipe.tools.assetslibrary.widgets
 
 Module contents
 ---------------
