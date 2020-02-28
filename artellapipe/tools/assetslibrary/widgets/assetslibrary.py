@@ -21,14 +21,14 @@ from Qt.QtCore import *
 from Qt.QtWidgets import *
 from Qt.QtGui import *
 
-import tpDccLib as tp
-from tpQtLib.core import qtutils
-from tpQtLib.widgets import splitters, stack, buttons
+import tpDcc as tp
+from tpDcc.libs.qt.core import qtutils, base
+from tpDcc.libs.qt.widgets import splitters, stack, buttons
 
 import artellapipe
 from artellapipe.core import defines
 from artellapipe.widgets import waiter
-from artellapipe.utils import resource, worker, exceptions
+from artellapipe.utils import worker, exceptions
 
 LOGGER = logging.getLogger()
 
@@ -87,7 +87,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         no_assets_frame.setLayout(no_assets_frame_layout)
         no_assets_layout.addWidget(no_assets_frame)
         no_assets_found_label = QLabel()
-        no_assets_found_pixmap = resource.ResourceManager().pixmap('no_assets_found')
+        no_assets_found_pixmap = tp.ResourcesMgr().pixmap('no_assets_found')
         no_assets_found_label.setPixmap(no_assets_found_pixmap)
         no_assets_frame_layout.addItem(QSpacerItem(10, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
         no_assets_frame_layout.addWidget(no_assets_found_label)
@@ -189,7 +189,8 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
                 if not item:
                     continue
                 asset_widget = item.containedWidget
-                asset_file = asset_widget.asset.get_file('rig', status=defines.ArtellaFileStatus.PUBLISHED)
+                asset_file = asset_widget.asset.get_file(
+                    'rig', status=defines.ArtellaFileStatus.PUBLISHED, must_exist=False)
                 asset_name = asset_widget.asset.get_name()
                 if asset_file and os.path.exists(asset_file):
                     continue
@@ -248,12 +249,12 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         for category in all_asset_categories:
             new_btn = QPushButton(category)
             new_btn.setMinimumWidth(QFontMetrics(new_btn.font()).width(category) + 10)
-            new_btn.setIcon(resource.ResourceManager().icon(category.lower()))
+            new_btn.setIcon(tp.ResourcesMgr().icon(category.lower()))
             new_btn.setCheckable(True)
             self._categories_menu_layout.addWidget(new_btn)
             self._categories_btn_grp.addButton(new_btn)
             if category == defines.ArtellaFileStatus.ALL:
-                new_btn.setIcon(resource.ResourceManager().icon('home'))
+                new_btn.setIcon(tp.ResourcesMgr().icon('home'))
                 new_btn.setChecked(True)
             new_btn.toggled.connect(partial(self._change_category, category))
 
@@ -272,16 +273,17 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
             return
 
         total_buttons = 0
-        for type_name, file_info in self._supported_files.items():
-            new_btn = QPushButton(type_name.title())
-            new_btn.setIcon(resource.ResourceManager().icon(type_name.lower()))
-            new_btn.setCheckable(True)
-            new_btn.file_info = file_info
-            self._supported_types_layout.addWidget(new_btn)
-            self._supported_types_btn_grp.addButton(new_btn)
-            if total_buttons == 0:
-                new_btn.setChecked(True)
-            total_buttons += 1
+        for supported_file in self._supported_files:
+            for type_name, file_info in supported_file.items():
+                new_btn = QPushButton(type_name.title())
+                new_btn.setIcon(tp.ResourcesMgr().icon(type_name.lower().replace(' ', '')))
+                new_btn.setCheckable(True)
+                new_btn.file_info = file_info
+                self._supported_types_layout.addWidget(new_btn)
+                self._supported_types_btn_grp.addButton(new_btn)
+                if total_buttons == 0:
+                    new_btn.setChecked(True)
+                total_buttons += 1
 
     def _start_refresh(self):
         """
@@ -316,8 +318,8 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         :param item: ArtellaAssetWidget
         """
 
-        sync_icon = resource.ResourceManager().icon('sync')
-        sync_hover_icon = resource.ResourceManager().icon('sync_hover')
+        sync_icon = tp.ResourcesMgr().icon('sync')
+        sync_hover_icon = tp.ResourcesMgr().icon('sync_hover')
         sync_btn = buttons.HoverButton(icon=sync_icon, hover_icon=sync_hover_icon)
         sync_btn.setStyleSheet('background-color: rgba(0, 0, 0, 150);')
         sync_btn.setIconSize(QSize(50, 50))
@@ -334,7 +336,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         Internal function that creates not published label
         """
 
-        not_published_pixmap = resource.ResourceManager().pixmap('asset_not_published')
+        not_published_pixmap = tp.ResourcesMgr().pixmap('asset_not_published')
         not_published_lbl = QLabel()
         not_published_lbl.move(9, 9)
         not_published_lbl.setFixedSize(65, 65)
@@ -350,8 +352,8 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         """
 
         new_menu = QMenu(self)
-        get_thumbnails_action = QAction(resource.ResourceManager().icon('picture'), 'Update Thumbnails', new_menu)
-        refresh_action = QAction(resource.ResourceManager().icon('refresh'), 'Refresh', new_menu)
+        get_thumbnails_action = QAction(tp.ResourcesMgr().icon('picture'), 'Update Thumbnails', new_menu)
+        refresh_action = QAction(tp.ResourcesMgr().icon('refresh'), 'Refresh', new_menu)
         get_thumbnails_action.triggered.connect(self._on_update_thumbnails)
         refresh_action.triggered.connect(self.refresh)
 
@@ -366,7 +368,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         :return: list(str)
         """
 
-        return artellapipe.AssetsMgr().config.get('types') or list()
+        return artellapipe.AssetsMgr().get_asset_categories()
 
     def _on_update_thumbnails(self):
         """
@@ -418,11 +420,11 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
                             continue
                         for extension, operation in extensions.items():
                             if operation == 'reference':
-                                res = asset_widget.asset.import_file_by_extension(
+                                res = asset_widget.asset.import_file(
                                     extension=extension, file_type=file_type, sync=self._sync_to_latest.isChecked(),
                                     reference=True, status=defines.ArtellaFileStatus.PUBLISHED)
                             else:
-                                res = asset_widget.asset.import_file_by_extension(
+                                res = asset_widget.asset.import_file(
                                     extension=extension, file_type=file_type, sync=self._sync_to_latest.isChecked(),
                                     reference=False, status=defines.ArtellaFileStatus.PUBLISHED)
                             if res:
@@ -433,7 +435,8 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
                                             tp.Dcc.fit_view(True)
                                         tp.Dcc.clear_selection()
                                     except Exception as exc:
-                                        LOGGER.warning('Impossible to fit camera view to referenced objects!')
+                                        LOGGER.warning(
+                                            'Impossible to fit camera view to referenced objects | {}!'.format(exc))
                 except Exception as e:
                     LOGGER.warning('Impossible to load asset file!')
                     LOGGER.error('{} | {}'.format(e, traceback.format_exc()))
@@ -501,7 +504,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         exceptions.capture_message(error_msg)
 
 
-class ArtellaAssetsLibrary(artellapipe.Tool, object):
+class ArtellaAssetsLibrary(artellapipe.ToolWidget, object):
 
     LIBRARY_WIDGET = ArtellaAssetsLibraryWidget
 
