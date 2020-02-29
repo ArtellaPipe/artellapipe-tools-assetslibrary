@@ -13,6 +13,7 @@ __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
 import os
+import time
 import logging
 import traceback
 from functools import partial
@@ -183,6 +184,10 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         if self._cache and not force:
             return self._cache
 
+        # If Artella server is slow, this process can take quite a lot of time. We detect this and disable
+        # Artella server calls if necessary
+        disable_artella_checks = False
+
         for i in range(self._assets_viewer.rowCount()):
             for j in range(self._assets_viewer.columnCount()):
                 item = self._assets_viewer.cellWidget(i, j)
@@ -204,16 +209,30 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
                         'label': None
                     }
 
-                    if not asset_widget.asset.is_published('rig'):
-                        self._cache[asset_name]['has_label'] = True
+                    if disable_artella_checks:
+                        self._cache[asset_name]['has_label'] = False
+                        self._cache[asset_name]['has_sync_button'] = False
                     else:
-                        self._cache[asset_name]['has_sync_button'] = True
+                        start_time = time.time()
+                        if not asset_widget.asset.is_published('rig'):
+                            self._cache[asset_name]['has_label'] = True
+                        else:
+                            self._cache[asset_name]['has_sync_button'] = True
+                        end_time = time.time() - start_time
+                        if end_time > 10:
+                            artellapipe.logger.warning('Artella server is slow. Artella checks will be skip ...')
+                            disable_artella_checks = True
+
+        if disable_artella_checks:
+            for asset_name, asset_data in self._cache.items():
+                asset_data['has_label'] = False
+                asset_data['has_sync_button'] = False
 
         return self._cache
 
     def update_assets_status(self, force=False):
         """
-        Updates widgets icon depending of the availabilty of the asset
+        Updates widgets icon depending of the availability of the asset
         """
 
         if not self._cache or force:
