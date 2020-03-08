@@ -527,8 +527,8 @@ class ArtellaAssetsLibrary(artellapipe.ToolWidget, object):
 
     LIBRARY_WIDGET = ArtellaAssetsLibraryWidget
 
-    def __init__(self, project, config):
-        super(ArtellaAssetsLibrary, self).__init__(project=project, config=config)
+    def __init__(self, project, config, settings, parent):
+        super(ArtellaAssetsLibrary, self).__init__(project=project, config=config, settings=settings, parent=parent)
 
     def ui(self):
         super(ArtellaAssetsLibrary, self).ui()
