@@ -24,7 +24,7 @@ from Qt.QtGui import *
 
 import tpDcc as tp
 from tpDcc.libs.qt.core import qtutils, base
-from tpDcc.libs.qt.widgets import splitters, stack, buttons
+from tpDcc.libs.qt.widgets import dividers, stack, buttons
 
 import artellapipe
 from artellapipe.core import defines
@@ -143,7 +143,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         self._sync_to_latest.setChecked(True)
         self._fit_camera_cbx = QCheckBox('Fit Camera')
         self._fit_camera_cbx.setChecked(False)
-        viewer_layout.addLayout(splitters.SplitterLayout())
+        viewer_layout.addLayout(dividers.DividerLayout())
         checkboxes_layout = QHBoxLayout()
         checkboxes_layout.setContentsMargins(5, 5, 5, 5)
         checkboxes_layout.setSpacing(2)
@@ -151,7 +151,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         checkboxes_layout.addWidget(self._sync_to_latest)
         checkboxes_layout.addWidget(self._fit_camera_cbx)
         checkboxes_layout.addItem(QSpacerItem(10, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
-        viewer_layout.addLayout(splitters.SplitterLayout())
+        viewer_layout.addLayout(dividers.DividerLayout())
 
         self._assets_viewer.assetAdded.connect(self._on_asset_added)
         self._stack.animFinished.connect(self._on_stack_anim_finished)
