@@ -154,9 +154,9 @@ class ArtellaAssetsLibraryWidget(base.BaseWidget, object):
 
             total_assets = len(self._assets_viewer.get_assets())
             if total_assets > 0:
-        #         self.update_asset_categories()
-        #         self.update_supported_types()
-        #         self.update_assets_status()
+                self.update_asset_categories()
+                self.update_supported_types()
+                self.update_assets_status()
                 self._stack.slide_in_index(1)
             else:
                 self._stack.slide_in_index(0)
