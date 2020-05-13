@@ -13,8 +13,6 @@ __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
 import os
-import time
-import logging
 import traceback
 from functools import partial
 
@@ -23,56 +21,34 @@ from Qt.QtWidgets import *
 from Qt.QtGui import *
 
 import tpDcc as tp
-from tpDcc.libs.qt.core import qtutils, base
-from tpDcc.libs.qt.widgets import dividers, stack, buttons
+from tpDcc.libs.python import decorators
+from tpDcc.libs.qt.core import base, qtutils
+from tpDcc.libs.qt.widgets import dividers, stack, buttons, toast, search
 
 import artellapipe
 from artellapipe.core import defines
 from artellapipe.widgets import waiter
-from artellapipe.utils import worker, exceptions
-
-LOGGER = logging.getLogger()
+from artellapipe.utils import exceptions
 
 
-class ArtellaAssetsLibraryWidget(QWidget, object):
+class ArtellaAssetsLibraryWidget(base.BaseWidget, object):
     def __init__(self, project, supported_files=None, parent=None):
 
         self._supported_files = supported_files if supported_files else dict()
         self._project = project
         self._cache = dict()
 
-        self._artella_worker = worker.Worker(app=QApplication.instance())
-        self._artella_worker.workCompleted.connect(self._on_artella_worker_completed)
-        self._artella_worker.workFailure.connect(self._on_artella_worker_failed)
-        self._artella_worker.start()
-
         super(ArtellaAssetsLibraryWidget, self).__init__(parent=parent)
 
-        self.ui()
         self.resize(150, 800)
-
         self._menu = self._create_contextual_menu()
-
         self._start_refresh()
 
-    def showEvent(self, event):
-        super(ArtellaAssetsLibraryWidget, self).showEvent(event)
-
     def ui(self):
-        self.main_layout = QVBoxLayout()
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
-        self.setLayout(self.main_layout)
-
-        self._main_widget = QWidget()
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        self._main_widget.setLayout(main_layout)
-        self.main_layout.addWidget(self._main_widget)
+        super(ArtellaAssetsLibraryWidget, self).ui()
 
         self._stack = stack.SlidingStackedWidget()
-        main_layout.addWidget(self._stack)
+        self.main_layout.addWidget(self._stack)
 
         no_assets_widget = QWidget()
         no_assets_layout = QVBoxLayout()
@@ -106,6 +82,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         self._stack.addWidget(viewer_widget)
         self._stack.addWidget(loading_waiter)
 
+        self._search = search.SearchFindWidget()
         self._assets_viewer = artellapipe.AssetsViewer(
             project=self._project,
             column_count=2,
@@ -128,6 +105,8 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         self._categories_btn_grp = QButtonGroup(self)
         self._categories_btn_grp.setExclusive(True)
 
+        viewer_layout.addWidget(self._search)
+        viewer_layout.addWidget(dividers.Divider())
         viewer_layout.addWidget(self._assets_viewer)
 
         self._supported_types_layout = QHBoxLayout()
@@ -153,28 +132,44 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         checkboxes_layout.addItem(QSpacerItem(10, 0, QSizePolicy.Expanding, QSizePolicy.Preferred))
         viewer_layout.addLayout(dividers.DividerLayout())
 
+    def setup_signals(self):
         self._assets_viewer.assetAdded.connect(self._on_asset_added)
         self._stack.animFinished.connect(self._on_stack_anim_finished)
+        self._search.textChanged.connect(self._on_search_asset)
 
     def contextMenuEvent(self, event):
         if not self._menu or self._stack.currentIndex() != 1:
             return
         self._menu.exec_(event.globalPos())
 
-    def refresh(self, *args, **kwargs):
+    @decorators.timestamp
+    def refresh(self):
         """
         Function that refresh all the data of the assets library
         """
 
-        self.update_assets_cache()
-        self.update_cache()
+        try:
+            self.update_assets_cache()
+            self.update_cache()
+
+            total_assets = len(self._assets_viewer.get_assets())
+            if total_assets > 0:
+        #         self.update_asset_categories()
+        #         self.update_supported_types()
+        #         self.update_assets_status()
+                self._stack.slide_in_index(1)
+            else:
+                self._stack.slide_in_index(0)
+        except Exception as exc:
+            artellapipe.logger.error(exc)
+            exceptions.capture_message(exc)
 
     def update_assets_cache(self):
         """
         Function that updates assets viewer internal cache
         """
 
-        self._assets_viewer.update_cache(force=True)
+        self._assets_viewer.update_assets(force=True)
 
     def update_cache(self, force=False):
         """
@@ -183,10 +178,6 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
 
         if self._cache and not force:
             return self._cache
-
-        # If Artella server is slow, this process can take quite a lot of time. We detect this and disable
-        # Artella server calls if necessary
-        disable_artella_checks = False
 
         for i in range(self._assets_viewer.rowCount()):
             for j in range(self._assets_viewer.columnCount()):
@@ -209,24 +200,10 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
                         'label': None
                     }
 
-                    if disable_artella_checks:
-                        self._cache[asset_name]['has_label'] = False
-                        self._cache[asset_name]['has_sync_button'] = False
+                    if not asset_widget.asset.is_published('rig'):
+                        self._cache[asset_name]['has_label'] = True
                     else:
-                        start_time = time.time()
-                        if not asset_widget.asset.is_published('rig'):
-                            self._cache[asset_name]['has_label'] = True
-                        else:
-                            self._cache[asset_name]['has_sync_button'] = True
-                        end_time = time.time() - start_time
-                        if end_time > 10:
-                            artellapipe.logger.warning('Artella server is slow. Artella checks will be skip ...')
-                            disable_artella_checks = True
-
-        if disable_artella_checks:
-            for asset_name, asset_data in self._cache.items():
-                asset_data['has_label'] = False
-                asset_data['has_sync_button'] = False
+                        self._cache[asset_name]['has_sync_button'] = True
 
         return self._cache
 
@@ -246,6 +223,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
             has_sync_button = self._cache[asset_name]['has_sync_button']
             if has_label:
                 self._cache[asset_name]['label'] = self._create_not_published_label(item)
+                self._cache[asset_name]['item'].setEnabled(False)
             if has_sync_button:
                 self._cache[asset_name]['sync_button'] = self._create_sync_button(item)
 
@@ -288,7 +266,7 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         qtutils.clear_layout(self._supported_types_layout)
 
         if not self._supported_files:
-            LOGGER.warning('No Supported Files for AssetsLibrary!')
+            artellapipe.logger.warning('No Supported Files for AssetsLibrary!')
             return
 
         total_buttons = 0
@@ -389,6 +367,32 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
 
         return artellapipe.AssetsMgr().get_asset_categories()
 
+    def _show_all_asset_items(self):
+        """
+        Internal function that shows all items of the current cached assets
+        """
+
+        if not self._cache:
+            return
+
+        for asset_name, asset_dict in self._cache.items():
+            item = asset_dict.get('item', None)
+            if item:
+                item.setVisible(True)
+
+    def _hide_all_asset_items(self):
+        """
+        Internal function that hides all items of the current cached assets
+        """
+
+        if not self._cache:
+            return
+
+        for asset_name, asset_dict in self._cache.items():
+            item = asset_dict.get('item', None)
+            if item:
+                item.setVisible(False)
+
     def _on_update_thumbnails(self):
         """
         Internal callback function that is called when Update Thumbnails action is triggered
@@ -413,7 +417,18 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         """
 
         if index == 2:
-            self._artella_worker.queue_work(self.refresh, {})
+            self.refresh()
+
+    def _on_search_asset(self, text):
+        if not self._cache or not text:
+            self._show_all_asset_items()
+        else:
+            self._hide_all_asset_items()
+
+        keys_to_show = [key for key in self._cache.keys() if text.lower() in key.lower()]
+        for key in keys_to_show:
+            item = self._cache[key]['item']
+            item.setVisible(True)
 
     def _on_asset_clicked(self, asset_widget):
         """
@@ -424,16 +439,17 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
         if not asset_widget:
             return
 
+        res = None
         for btn in self._supported_types_btn_grp.buttons():
             if btn.isChecked():
                 try:
                     file_info = btn.file_info
                     if not file_info:
-                        LOGGER.warning('Impossible to load asset file!')
-                        return
+                        artellapipe.logger.warning('Impossible to load asset file!')
+                        break
                     for file_type, extensions in file_info.items():
                         if not extensions:
-                            LOGGER.warning(
+                            artellapipe.logger.warning(
                                 'No Extension defined for File Type "{}" in artellapipe.tools.assetslibrary '
                                 'configuration file!'.format(file_type))
                             continue
@@ -454,13 +470,16 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
                                             tp.Dcc.fit_view(True)
                                         tp.Dcc.clear_selection()
                                     except Exception as exc:
-                                        LOGGER.warning(
+                                        artellapipe.logger.warning(
                                             'Impossible to fit camera view to referenced objects | {}!'.format(exc))
                 except Exception as e:
-                    LOGGER.warning('Impossible to load asset file!')
-                    LOGGER.error('{} | {}'.format(e, traceback.format_exc()))
+                    artellapipe.logger.warning('Impossible to load asset file!')
+                    artellapipe.logger.error('{} | {}'.format(e, traceback.format_exc()))
                 finally:
-                    return
+                    if not res:
+                        toast.BaseToast.error(text='Error loading file', parent=self)
+                    else:
+                        toast.BaseToast.success(text='File loaded!', parent=self)
 
     def _on_sync_asset(self, asset_widget):
         """
@@ -495,32 +514,6 @@ class ArtellaAssetsLibraryWidget(QWidget, object):
             return
 
         asset.sync(file_type, sync_type)
-
-    def _on_artella_worker_completed(self, uid, asset_widget):
-        """
-        Internal callback function that is called when worker finishes its job
-        """
-
-        total_assets = len(self._assets_viewer.get_assets())
-        if total_assets > 0:
-            self.update_asset_categories()
-            self.update_supported_types()
-            self.update_assets_status()
-            self._stack.slide_in_index(1)
-        else:
-            self._stack.slide_in_index(0)
-
-    def _on_artella_worker_failed(self, uid, msg, trace):
-        """
-        Internal callback function that is called when the Artella worker fails
-        :param uid: str
-        :param msg: str
-        :param trace: str
-        """
-
-        error_msg = '{} | {} | {}'.format(uid, msg, trace)
-        LOGGER.error(error_msg)
-        exceptions.capture_message(error_msg)
 
 
 class ArtellaAssetsLibrary(artellapipe.ToolWidget, object):
