@@ -13,6 +13,7 @@ __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
 import os
+import logging
 import traceback
 from functools import partial
 
@@ -26,9 +27,11 @@ from tpDcc.libs.qt.core import base, qtutils
 from tpDcc.libs.qt.widgets import dividers, stack, buttons, toast, search
 
 import artellapipe
-from artellapipe.core import defines
-from artellapipe.widgets import waiter
+from artellapipe.core import defines, tool
+from artellapipe.widgets import waiter, assetsviewer
 from artellapipe.utils import exceptions
+
+LOGGER = logging.getLogger('artellapipe-tools-assetslibrary')
 
 
 class ArtellaAssetsLibraryWidget(base.BaseWidget, object):
@@ -83,7 +86,7 @@ class ArtellaAssetsLibraryWidget(base.BaseWidget, object):
         self._stack.addWidget(loading_waiter)
 
         self._search = search.SearchFindWidget()
-        self._assets_viewer = artellapipe.AssetsViewer(
+        self._assets_viewer = assetsviewer.AssetsViewer(
             project=self._project,
             column_count=2,
             parent=self
@@ -161,7 +164,7 @@ class ArtellaAssetsLibraryWidget(base.BaseWidget, object):
             else:
                 self._stack.slide_in_index(0)
         except Exception as exc:
-            artellapipe.logger.error(exc)
+            LOGGER.error('{} | {}'.format(exc, traceback.format_exc()))
             exceptions.capture_message(exc)
 
     def update_assets_cache(self):
@@ -266,7 +269,7 @@ class ArtellaAssetsLibraryWidget(base.BaseWidget, object):
         qtutils.clear_layout(self._supported_types_layout)
 
         if not self._supported_files:
-            artellapipe.logger.warning('No Supported Files for AssetsLibrary!')
+            LOGGER.warning('No Supported Files for AssetsLibrary!')
             return
 
         total_buttons = 0
@@ -445,11 +448,11 @@ class ArtellaAssetsLibraryWidget(base.BaseWidget, object):
                 try:
                     file_info = btn.file_info
                     if not file_info:
-                        artellapipe.logger.warning('Impossible to load asset file!')
+                        LOGGER.warning('Impossible to load asset file!')
                         break
                     for file_type, extensions in file_info.items():
                         if not extensions:
-                            artellapipe.logger.warning(
+                            LOGGER.warning(
                                 'No Extension defined for File Type "{}" in artellapipe.tools.assetslibrary '
                                 'configuration file!'.format(file_type))
                             continue
@@ -470,11 +473,11 @@ class ArtellaAssetsLibraryWidget(base.BaseWidget, object):
                                             tp.Dcc.fit_view(True)
                                         tp.Dcc.clear_selection()
                                     except Exception as exc:
-                                        artellapipe.logger.warning(
+                                        LOGGER.warning(
                                             'Impossible to fit camera view to referenced objects | {}!'.format(exc))
                 except Exception as e:
-                    artellapipe.logger.warning('Impossible to load asset file!')
-                    artellapipe.logger.error('{} | {}'.format(e, traceback.format_exc()))
+                    LOGGER.warning('Impossible to load asset file!')
+                    LOGGER.error('{} | {}'.format(e, traceback.format_exc()))
                 finally:
                     if not res:
                         toast.BaseToast.error(text='Error loading file', parent=self)
@@ -516,7 +519,7 @@ class ArtellaAssetsLibraryWidget(base.BaseWidget, object):
         asset.sync(file_type, sync_type)
 
 
-class ArtellaAssetsLibrary(artellapipe.ToolWidget, object):
+class ArtellaAssetsLibrary(tool.ArtellaToolWidget, object):
 
     LIBRARY_WIDGET = ArtellaAssetsLibraryWidget
 
